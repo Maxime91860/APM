@@ -1,0 +1,36 @@
+# 212 "/usr/lib/gcc/x86_64-linux-gnu/4.8/include/stddef.h" 3
+typedef unsigned long size_t;
+#include "crt/device_runtime.h"
+# 5 "tp1_check.cu"
+__global__ __var_used__ extern void _Z6kernelPdS_S_i(double *, double *, double *, int);
+#include "common_functions.h"
+# 5 "tp1_check.cu"
+__global__ __var_used__ void _Z6kernelPdS_S_i(
+# 5 "tp1_check.cu"
+double *a, 
+# 5 "tp1_check.cu"
+double *b, 
+# 5 "tp1_check.cu"
+double *c, 
+# 5 "tp1_check.cu"
+int N){
+# 5 "tp1_check.cu"
+{
+# 6 "tp1_check.cu"
+{
+# 7 "tp1_check.cu"
+ int __cuda_local_var_42657_9_non_const_i;
+# 7 "tp1_check.cu"
+__cuda_local_var_42657_9_non_const_i = ((int)(((blockIdx.x) * (blockDim.x)) + (threadIdx.x)));
+# 9 "tp1_check.cu"
+if (__cuda_local_var_42657_9_non_const_i < N)
+# 10 "tp1_check.cu"
+{
+# 11 "tp1_check.cu"
+(c[__cuda_local_var_42657_9_non_const_i]) = ((a[__cuda_local_var_42657_9_non_const_i]) + (b[__cuda_local_var_42657_9_non_const_i]));
+# 12 "tp1_check.cu"
+}
+# 13 "tp1_check.cu"
+} 
+# 13 "tp1_check.cu"
+}}
