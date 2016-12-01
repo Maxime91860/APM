@@ -42,7 +42,6 @@ int check_a(int * a)
 	{
 		if(a[i] != (i+1)) 
 		{
-         
 			correct = 0;
 		} 
 	}	
@@ -54,22 +53,41 @@ int check_a(int * a)
 /* CUDA FUNCTION */
 __global__ void mykernel(int * a, int * b, int N)
 {
-/* A COMPLETER */
+	/* A COMPLETER */
+	// int 
+	int j;
+	for(j=0; j<100; j++){
+		int i = threadIdx.x + j*blockDim.x;
+		if(i < N){
+			// printf("a[%d] = %d, b[%d] = %d \n",i,a[i], i, b[i] );
+			a[ b[i] ] += b[i];
+		}
+	}
+	
+
 }
 
 
 int main(int argc, char * argv[])
 {
 
-	int * a = (int *)malloc(sizeof(int)*SIZE);
-	int * b = (int *)malloc(sizeof(int)*SIZE);
+	int taille = sizeof(int)*SIZE;
 
-    init_a(a);
-	init_b(b);
+	int * h_a = (int *)malloc(taille);
+	int * h_b = (int *)malloc(taille);
 
+    init_a(h_a);
+	init_b(h_b);
 
-/*  INSERT CUDA ALLOCATION AND COPY HERE */
-    /* A COMPLETER */    
+	int* d_a;
+	int* d_b;
+
+	/* A COMPLETER */    
+	cudaMalloc((void**)&d_a, taille);
+	cudaMalloc((void**)&d_b, taille);
+
+	cudaMemcpy (d_a, h_a, taille, cudaMemcpyHostToDevice);
+	cudaMemcpy (d_b, h_b, taille, cudaMemcpyHostToDevice);
 
 
 	dim3 nBlocks;
@@ -82,10 +100,13 @@ int main(int argc, char * argv[])
 	mykernel<<< nBlocks , nThperBlock >>>(d_a, d_b, SIZE);
 
 	
-/* INSERT CUDA COPY HERE */
+	/* INSERT CUDA COPY HERE */
     /* A COMPLETER */
+    cudaMemcpy (h_a, d_a, taille, cudaMemcpyDeviceToHost);
 
-	int correct = check_a(a);;
+
+
+	int correct = check_a(h_a);;
 	
 	if(0 == correct)
 	{
@@ -95,6 +116,12 @@ int main(int argc, char * argv[])
 	{
 		printf("\n\n ******************** \n ***** SUCCESS! ***** \n ******************** \n\n");
 	}
+
+	free(h_a);
+	free(h_b);
+
+	cudaFree(d_a);
+	cudaFree(d_b);
 
 
 	return 1;
