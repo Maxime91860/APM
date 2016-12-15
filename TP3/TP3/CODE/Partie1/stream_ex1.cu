@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <sys/time.h> 
 
 #define NSTREAMS 2
 
@@ -44,6 +45,7 @@ __global__ void MyKernel(float *out, float *in, int sz)
 
 int main(int argc, char **argv)
 {
+    struct timeval debut_calcul, fin_calcul, duree_calcul;
     int size, nblocks, nthreads = 128;
 
     if (argc == 2)
@@ -58,8 +60,10 @@ int main(int argc, char **argv)
     printf("Taille des tableaux : %d\n", NSTREAMS*size);
     printf("nblocks             : %d\n", nblocks);
     printf("nthreads            : %d\n", nthreads);
-
+    
     float *hostPtr, *inputDevPtr, *outputDevPtr;
+
+    gettimeofday(&debut_calcul, NULL);
 
     cudaMalloc((void**)&inputDevPtr, NSTREAMS * size * sizeof(float));
     cudaMalloc((void**)&outputDevPtr, NSTREAMS * size * sizeof(float));
@@ -71,21 +75,21 @@ int main(int argc, char **argv)
     cudaStream_t stream[NSTREAMS]; 
     
     for (int i = 0; i < NSTREAMS; ++i) 
-	cudaStreamCreate(&stream[i]);     
+	   cudaStreamCreate(&stream[i]);     
   
     for (int i = 0; i < NSTREAMS; ++i)
-	cudaMemcpyAsync(inputDevPtr + i * size, hostPtr + i * size, size*sizeof(float), cudaMemcpyHostToDevice, stream[i]); 
+	   cudaMemcpyAsync(inputDevPtr + i * size, hostPtr + i * size, size*sizeof(float), cudaMemcpyHostToDevice, stream[i]); 
     
     for (int i = 0; i < NSTREAMS; ++i) 
-	MyKernel<<<nblocks, nthreads, 0, stream[i]>>> (outputDevPtr + i * size, inputDevPtr + i * size, size); 
+	   MyKernel<<<nblocks, nthreads, 0, stream[i]>>> (outputDevPtr + i * size, inputDevPtr + i * size, size); 
     
     for (int i = 0; i < NSTREAMS; ++i) 
-	cudaMemcpyAsync(hostPtr + i * size, outputDevPtr + i * size, size*sizeof(float), cudaMemcpyDeviceToHost, stream[i]); 
+	   cudaMemcpyAsync(hostPtr + i * size, outputDevPtr + i * size, size*sizeof(float), cudaMemcpyDeviceToHost, stream[i]); 
     
     cudaThreadSynchronize();
 
     for (int i = 0; i < NSTREAMS; ++i) 
-	cudaStreamDestroy(stream[i]); 
+	   cudaStreamDestroy(stream[i]); 
 
     verif(hostPtr, NSTREAMS*size);
 
@@ -93,6 +97,10 @@ int main(int argc, char **argv)
     cudaFree(outputDevPtr);
 
     cudaFreeHost(hostPtr);
+
+    gettimeofday(&fin_calcul, NULL);
+    timersub(&fin_calcul, &debut_calcul, &duree_calcul);
+    printf("Temps total du programme CUDA : %f s\n", (double) (duree_calcul.tv_sec) + (duree_calcul.tv_usec / 1000000.0));
 
     return 0;
 }
