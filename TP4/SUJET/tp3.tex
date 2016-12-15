@@ -1,0 +1,227 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{graphicx, subfigure}
+\usepackage{amssymb,amstext,amsmath, array,textpos, url, hyperref, enumerate, listings, colortbl }
+\usepackage{chngpage}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{algorithmic, algorithm}
+\usepackage[french]{babel}
+\usepackage{xcolor}
+\definecolor{graybg}{gray}{0.85}
+\definecolor{graybg2}{gray}{0.90}
+\definecolor{graybg3}{gray}{0.95}
+\pagestyle{plain}
+\bibliographystyle{alpha}
+\usepackage{verbatim}
+
+\def\thesection       {\Roman{section}}
+\def\thesubsection       {\arabic{subsection}}
+
+
+\lstset{extendedchars=false}
+\lstset{language=c}
+\lstset{% general command to set parameter(s)
+		basicstyle=\scriptsize,          % print whole listing small
+		keywordstyle=\color{blue}\bfseries,
+		frameround=tttt,
+		commentstyle=\color{red},
+		frame=single,
+		numbers=left,
+		stringstyle=\ttfamily,      % typewriter type for strings
+			showstringspaces=false}     % no special string spaces
+			%/LISTINGS
+
+% Exercice number
+\newcounter{numexos}%Création d'un compteur qui s`appelle numexos
+\setcounter{numexos}{0}%initialisation du compteur
+\newcommand{\exercice}[1]%
+{%Création d'une macro ayant un paramètre
+  \addtocounter{numexos}{1}%chaque fois que cette macro est appelée, elle ajoute 1 au compteur numexos
+  \paragraph{Q.\thenumexos:}%
+	{#1} %Met en rouge Exercice et la valeur du compteur appelée par \thenumeexos
+}
+
+%Correction
+\newcommand{\sectioncorrection}[1]%
+{
+\ifx\tpcorrection \undefined %
+\else %
+\begin{center}
+\textcolor{red}{Correction} \\
+\fcolorbox{black}{graybg}{
+\begin{minipage}{0.9\textwidth}
+	{#1} 
+\end{minipage}
+}
+\end{center}
+\fi
+}
+
+% Guillemets
+\newcommand{\ofg}[1]{\og{#1\fg{}}}
+
+% Correction
+
+% comment out above definition of todo
+
+\newboolean{reponse}
+\setboolean{reponse}{true}
+\ifthenelse{\boolean{reponse}}
+{
+  \newenvironment{correction}
+  {\color{red} \small}
+  {\color{black} \normalsize}
+}{
+\newsavebox{\trashcan}
+\newenvironment{correction}
+  {\begin{lrbox}{\trashcan}}
+  {\end{lrbox}}
+}
+
+\newenvironment{tip}
+	{	\fbox\{\begin{minipage}{1\textwidth} \includegraphics[width=0.8cm]{../tips.png}}
+	{	\end{minipage}\} }
+%  {\vspace{10pt} \begin{fbox} \begin{minipage}{1\textwidth} \includegraphics[width=0.8cm]{../tips.png}}
+%  {\end{minipage}\end{fbox}}
+
+\begin{document}
+
+\changepage{3cm}%amount added to textheight
+{1cm}%amount added to textwidth
+{-1cm}%amount added to evensidemargin
+{-1cm}%amount added to oddsidemargin
+{}%amount added to columnsep
+{-2cm}%amount added to topmargin
+{}%amount added to headheight
+{}%amount added to headsep
+{}%amount added to footskip
+
+
+\vspace{0.1\textheight}
+
+\begin{tabular}{m{0.4\textwidth}m{0.6\textwidth}}
+
+  \begin{center}
+    \includegraphics[width=5.5cm]{uvsq-logo-cmjn.jpg}
+  \end{center}
+
+  &
+
+  \begin{center}
+ 	\LARGE{\textbf{M2 - Architecture et Programmation\\d'acc\'el\'erateurs Mat\'eriels.}} \\
+	\large{(APM 2016-2017)} \\
+	\Huge{TP2} \\%\large{(1 s\'eance) }\\
+	\Large{CUDA} \\
+	\large{~}\\
+    	\small{\url{hugo.taboada.ocre@cea.fr}\\
+			\url{julien.jaeger@cea.fr}\\
+    	\url{patrick.carribault@cea.fr}}\\
+
+  \end{center}
+  \\
+\end{tabular}
+
+
+
+Les objectifs de ce TP sont:
+\begin{itemize}
+	\item Ecriture d'un premier code CUDA 
+	\item Utilisation efficace d'un GPU
+	\item Calcul de l'indice global avec plusieurs dimensions
+\end{itemize}
+
+%%PARTIE I
+\section{R\'eduction somme en CUDA}
+Une r\'eduction somme consiste \`a additionner toutes les valeurs d'une tableau. Une \'ecriture s\'equentielle d'une
+r\'eduction pourrait \^etre la suivante:\\
+\textit{
+float sum = 0; \\
+for (int i = 0; i < ntot; i++) \\
+\hspace*{1cm} sum += tab[i]; \\
+}
+\newline
+
+On d\'esire \'ecrire une impl\'ementation CUDA de la r\'eduction somme ($tab$ se trouve sur le GPU).
+Pour impl\'ementer la r\'eduction, nous proposons d'op\'erer en deux \'etapes:
+\begin{enumerate}
+	\item Une premi\`ere r\'eduction dans chaque bloc. On obtient ainsi \`a la fin un tableau dimensionn\'e au nombre de
+blocs et dont les valeurs sont les sommes partielles de chaque bloc.
+	\item Une seconde r\'eduction sur les sommes partielles. On obtient ainsi la somme totale des \'el\'ements du tableau. 
+\end{enumerate}
+
+% QUESTION 2-1
+\exercice{Impl\'ementer le kernel \texttt{reduce\_kernel(float *in, float *out)} (voir fichier
+\textit{reduce.cu}) permettant de faire les sommes partielles par bloc. \\
+\textit{in} est le tableau de valeurs \`a r\'eduire dimensionn\'e au nombre total de threads dans
+la grille, et \textit{out} le tableau de valeurs r\'eduites par bloc, dimensionn\'e au nombre de bloc. \\
+Pour r\'ealiser cette r\'eduction,
+vous utiliserez une m\'ethode arborescente, ainsi que la fonction \texttt{\_\_syncthreads()} qui permet de synchroniser
+\`a l'int\'erieur d'un kernel tous les threads d'un m\^eme bloc. \\
+Nous nous placerons sous les hypoth\`eses suivantes: 
+\begin{itemize}
+	\item Le nombre de blocs et de threads par bloc sont des puissances de 2.
+	\item La taille du tableau est \'egale au nombre de threads.
+\end{itemize}
+}
+
+% CORRECTION 2-1
+\sectioncorrection{
+Voir fichier \textit{reduce.cu}.
+}
+
+% QUESTION 2-2
+\exercice{Utiliser le m\^eme kernel pour terminer la r\'eduction (\'etape 2).}
+
+% CORRECTION 2-2
+\sectioncorrection{
+Il suffit d'appeler \`a la suite du pr\'ec\'edent kernel le m\^eme kernel avec cette fois-ci un nombre de thread \'egal
+au nombre de blocs du kernel pr\'ec\'edent, et avec un seul bloc. De la m\^eme fa\c{c}on, le tableau \texttt{db\_l} qui
+recevait les r\'esultats partiels est cette fois-ci en lecture, et c'est la variable \texttt{d\_sum} qui recevra le
+r\'esultat final de la r\'eduction. \\Voir fichier \textit{reduce.cu}.
+}
+
+% QUESTION 2-3
+\exercice{G\'en\'eraliser la r\'eduction \`a une taille quelconque de tableau.}
+
+% CORRECTION 2-3
+\sectioncorrection{
+Il suffit de passer le nombre total de threads en param\`etre du kernel, et de v\'erifier dans le kernel que les
+\'el\'ements des sommes partielles sont valides (indice < ntot). \\Voir fichier \textit{reduce\_anysize.cu}
+}
+
+
+
+
+%%PARTIE II
+\section{Modification d'image: flou et flou iteratif }
+Le programme \textit{tp3\_video1.c} pr\'esent dans le r\'epertoire \textit{VIDEO} lit une vid\'eo, la
+traduit sous forme de tableaux de pixels, puis modifie ces pixels afin de transformer la vid\'eo couleur en vid\'eo en
+niveaux de gris.
+Vous pouvez compiler et ex\'ecuter le programme, en utilisant la petite vid\'eo test fournie \textit{Wildlife.wmv}, pour voir l'effet du
+programme sur la vid\'eo g\'en\'er\'ee \textit{my\_copy.wmv}.
+
+Comme pour le TP pr\'ec\'edent, dans le m\^eme r\'epertoire se trouve le fichier tp3\_video1.cu.
+
+% QUESTION 2-1
+\exercice{ Dans ce TP, nous allons impl\'ementer une nouvelle modification d'image: le flou. Le flou est une op\'eration de stencil: pour mettre \`a jour la valeur de la case, nous avons besoin des donn\'es des cases voisines. Pour effectuer un flou, il suffit de mettre \`a jour un pixel avec la moyenne des valeurs de ce pixel et des pixels voisins, pour chaque composante. Dans notre cas, nous allons uniquement consid\'erer les voisin directs. Pour un pixel[i][j], il d'agit des pixels [i-1][j], [i+1][j], [i][j-1] et [i][j+1].
+
+Impl\'ementer le kernel permettant de faire un flou sur les frames 200 \`a 400.}
+
+% QUESTION 2-2
+\exercice{Ce code est-il efficace? Pourquoi? Rendez-le plus efficace.}
+
+% % CORRECTION 4-2
+\sectioncorrection{Non, car nous r\'ealisons des transferts pour chaque frame. Il serait plus int\'eressant de
+r\'ecup\'erer et transf\'erer les frames toutes ensemble, ou au moins pas paquets de frame si la m\'emoire ne permet pas
+de toutes les stock\'ees en m\^eme temps.}
+
+% QUESTION 4-3
+\exercice{Le programme \textit{tp2\_video2.c} r\'ealise une autre modification en plus du niveaux de gris. La m\'ethode
+de \textit{SOBEL} fournie permet de d\'etecter les contours sur une image quelconque. Ces contours sont alors affich\'es
+en blanc sur fond noir. Comme la question pr\'ec\'edente, ecrivez le code CUDA permettant de r\'ealiser la m\`ethode de
+SOBEL sur le GPU.}
+
+ 
+
+\end{document}
